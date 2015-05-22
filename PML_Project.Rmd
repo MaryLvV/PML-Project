@@ -1,0 +1,56 @@
+---
+title: "PML Project"
+author: "Mary van Valkenburg"
+date: "May 22, 2015"
+output: html_document
+---
+### Executive Summary
+
+The data for this project are derived from data collected as part of the Groupware@LES Human Activity Recognition (HAR) research (http://groupware.les.inf.puc-rio.br/har). A 2013 study collected data on six subjects who were novice weightlifters.  All subjects were males between 20-28 years of age.  Correct weightlifting technique for unilateral dumbbell biceps curl was illustrated and feedback was provided to attempt to improve the quality of each subject's weightlifting execution.  Wearable sensors were used to record differences between qualitatively correct activity and the same activity performed incorrectly.  Five classes were created to classify subject performance: Class A denoted correct technique.  Classes B, C, D, and E indicated four different incorrect variations (throwing elbows forward, lifting the dumbbell only part way, lowering the dumbbell only partway, and throwing the hips forward).
+
+This project was the creation of  model to predict the subject performance class using the data collected. 
+
+<p style = "color: steelblue; font-size: 12pt"> Cleaning and organizing the data: </p>
+The dataset provided contained 19622 observations of 160 variables.  Columns were eliminated from the data if more than 10 percent (1962 rows) of the data was missing, thereby reducing the number of variables in the dataset to 60. The data was again subset to eliminate the first 7 rows, as these variables were not potentially predictive of class.  
+```{r, echo=FALSE, cache=TRUE}
+library(caret)
+library(ggplot2)
+library(randomForest)
+```
+```{r, cache=TRUE}
+train <- read.csv("pml-training.csv", na.strings=c("NA", "#DIV/0!"), stringsAsFactors = FALSE)
+train$classe <- as.factor(train$classe) 
+train2 <- train[ , colSums(is.na(train))< 1962]
+train3 <- train2[ , 8:60]
+set.seed(4242)
+```
+The dataset was then split into two for training and cross-validation.  The training set (ForTrain) contained 13733 observations, while the testing set (ForTest) contained 5889 observations.
+
+```{r, cache=TRUE}
+validation <- createDataPartition(y=train3$classe, p=0.3, list = FALSE)
+ForTest <- train3[validation, ]
+ForTrain <- train3[-validation, ]
+```
+<p style = "color: steelblue; font-size: 12pt"> Training a model and using it to predict: </p>
+The machine learning algorithm selected was <b>random forest</b> becuase a large number of variables were provided, and random forest tends to have a high degree of accuracy.
+
+```{r cache=TRUE}
+fitMod <- randomForest(classe~., data=ForTrain)
+pred <- predict(fitMod, ForTest)
+```
+<p style = "color: steelblue; font-size: 12pt"> Checking predictions and misclassification rate: </p>
+A table showing the predicted and actual values was generated, and misclassification was calculated to be 0.0051.
+```{r cache=TRUE}
+ForTest$Correct <- pred==ForTest$classe
+table(pred,ForTest$classe)
+# correct for A: 1674/1674, B: 1129/1140, C: 1022/1027, D: 951/965, E: 1083/1083
+# overall misclassification: 30/5889 = .0051
+```
+<p style = "color: steelblue; font-size: 12pt"> Exploring the variable importance: </p>
+The eight most important variables are plotted, and then the top two ('roll_belt' and 'yaw_belt') are plotted against each other with wrong predictions showing in red.  The seventh and eighth ranked variables ('roll_forearm' and 'magnet_dumbbell_x' are also plotted in this manner.)
+
+```{r cache=TRUE}
+varImpPlot(fitMod, sort=TRUE, n.var=8, main = "variable importance")
+qplot(roll_belt, yaw_belt, colour=Correct, data=ForTest, main = "cross-validation predictions")
+qplot(roll_forearm, magnet_dumbbell_x, colour=Correct, data=ForTest, main = "cross-validation predictions")
+```
